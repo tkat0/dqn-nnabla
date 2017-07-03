@@ -52,9 +52,10 @@ def train():
     nn.set_default_context(ctx)
 
     monitor = Monitor(Config.MONITOR_PATH)
-    monitor_loss = MonitorSeries("Training loss", monitor, interval=10)
-    monitor_reward = MonitorSeries("Training reward", monitor, interval=10)
-    monitor_time = MonitorTimeElapsed("Training time", monitor, interval=10)
+    monitor_loss = MonitorSeries("Training loss", monitor, interval=1)
+    monitor_reward = MonitorSeries("Training reward", monitor, interval=1)
+    monitor_q = MonitorSeries("Training q", monitor, interval=1)
+    monitor_time = MonitorTimeElapsed("Training time", monitor, interval=1)
 
     # placeholder
     image = nn.Variable([Config.BATCH_SIZE, Config.STATE_LENGTH, Config.FRAME_WIDTH, Config.FRAME_HEIGHT])
@@ -100,6 +101,7 @@ def train():
         # join 4 frame
         state = [observation_next for _ in xrange(Config.STATE_LENGTH)]
         state = np.stack(state, axis=0)
+        total_reward = 0
         while not done:
             # select action
             if step % Config.ACTION_INTERVAL == 0:
@@ -120,6 +122,7 @@ def train():
             # get next environment
             observation_next, reward, done, info = env.step(action)
             observation_next = preprocess_frame(observation_next)
+            total_reward += reward
             # TODO clip reward
 
             # update replay memory (FIFO)
@@ -145,22 +148,16 @@ def train():
                 image.d = batch_observation.astype(np.float32)
                 image_target.d = batch_observation_next.astype(np.float32)
                 a.d = batch_action
-                q_val.forward() # XXX 
+                q_val.forward() # XXX
                 target_q.forward()
                 t.d = batch_reward + (1-batch_done) * Config.GAMMA * np.max(target_q.d, axis=1, keepdims=True)
                 solver.zero_grad()
                 loss.forward()
                 loss.backward()
-                print "reward"
-                print np.mean(reward)
-                print "q"
-                print np.mean(q.d)
-                print "t"
-                print np.mean(t.d)
-                print "loss"
-                print loss.d
+
                 monitor_loss.add(step, loss.d.copy())
-                monitor_reward.add(step, np.mean(reward))
+                monitor_reward.add(step, total_reward)
+                monitor_q.add(step, np.mean(q.d.copy()))
                 monitor_time.add(step)
                 # TODO weight clip
                 solver.update()

@@ -2,10 +2,24 @@ import csv
 
 import matplotlib.pyplot as plt
 
-reader = csv.reader(open("./monitor/Training-loss.series.txt", "r"), delimiter=" ")
+def get_data(filepath):
+    reader = csv.reader(open(filepath, "r"), delimiter=" ")
+    data = [row[1] for row in reader]
+    return data
 
-loss = [row[1] for row in reader]
+data = get_data("./monitor/Training-loss.series.txt")
+plt.subplot(2, 2, 1)
+plt.plot(data)
+plt.title("loss")
 
-plt.plot(loss)
+data = get_data("./monitor/Training-reward.series.txt")
+plt.subplot(2, 2, 2)
+plt.plot(data)
+plt.title("reward")
 
-plt.savefig("loss.png")
+data = get_data("./monitor/Training-q.series.txt")
+plt.subplot(2, 2, 3)
+plt.plot(data)
+plt.title("q")
+
+plt.savefig("train.png")
